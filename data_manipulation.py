@@ -1,5 +1,7 @@
 import pickle
 import pandas as pd
+import missingno as msno
+import matplotlib.pyplot as plt
 
 #Getting data in form of a dictionary from a pickle file
 with open('dataset.pickle', 'rb') as f:
@@ -58,4 +60,11 @@ for userID, userData in data.items():
 
 #Convert rows to pandas dataframe
 df = pd.DataFrame(rows)
-print(df.head())
+
+#Check if there are missing values in the data set
+df_nulls = pd.DataFrame(df.isnull().sum().sort_values(ascending=False), columns=['Number of Missing Values'])
+df_nulls['% Missing'] = df.isnull().sum().sort_values(ascending=False)/len(df)
+print(df_nulls)
+
+msno.bar(df)
+plt.show() 
