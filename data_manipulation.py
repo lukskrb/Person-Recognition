@@ -93,11 +93,14 @@ for userID, userData in data.items():
 #Convert rows to pandas dataframe
 df = pd.DataFrame(rows)
 #print(df[:46700])
-print(df)
+
 #Check if there are missing values in the data set
+df = df.dropna()
 df_nulls = pd.DataFrame(df.isnull().sum().sort_values(ascending=False), columns=['Number of Missing Values'])
 df_nulls['% Missing'] = df.isnull().sum().sort_values(ascending=False)/len(df)
 print(df_nulls)
+
+print(df)
 
 #msno.bar(df)
 #plt.show() 
