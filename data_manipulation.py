@@ -2,6 +2,7 @@ import pickle
 import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn import preprocessing
+from sklearn.model_selection import train_test_split
 import numpy as np
 
 #Getting data in form of a dictionary from a pickle file
@@ -92,7 +93,6 @@ for userID, userData in data.items():
 
 #Convert rows to pandas dataframe
 df = pd.DataFrame(rows)
-#print(df[:46700])
 
 #Check if there are missing values in the data set
 df = df.dropna()
@@ -100,28 +100,13 @@ df_nulls = pd.DataFrame(df.isnull().sum().sort_values(ascending=False), columns=
 df_nulls['% Missing'] = df.isnull().sum().sort_values(ascending=False)/len(df)
 print(df_nulls)
 
-print(df)
+#Split data into training and testing set
+X = df.drop('user_id', axis=1)
+y = df[['user_id']]
+#print(X)
 
-#msno.bar(df)
-#plt.show() 
+scaler = preprocessing.MinMaxScaler()
+X = scaler.fit_transform(X)
+#print(X)
 
-'''
-#Example of how data differes beetween 3 users
-for label in ['ts', 'orientation', 'magX']:
-    plt.hist(df[df['userID']==0][label], color='blue', label='User 0', alpha=0.7, density=True)
-    plt.hist(df[df['userID']==1][label], color='red', label='User 1', alpha=0.7, density=True)
-    plt.hist(df[df['userID']==7][label], color='green', label='User 7', alpha=0.7, density=True)
-    plt.title(label)
-    plt.ylabel('Probability')
-    plt.xlabel(label)
-    plt.legend()
-    #plt.show()
-
-
-#Encoding labels into numerical format 
-label_encoder = preprocessing.LabelEncoder()
-df['inputMode'] = label_encoder.fit_transform(df['inputMode'])
-df['inputType'] = label_encoder.fit_transform(df['inputType'])
-df['inputContent'] = label_encoder.fit_transform(df['inputContent'])
-#print(df[:45000])
-'''
+X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=42, train_size = .75)
