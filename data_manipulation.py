@@ -37,6 +37,10 @@ for userID, userData in data.items():
                 pressure = sensorData.get('pressure', [])
                 size = sensorData.get('size', [])
 
+                required_vectors = [rawposX, rawposY, relposX, relposY, velX, velY, magX, magY, magZ, orientation, pressure, size]
+                if any(len(v) == 0 for v in required_vectors):
+                    continue  # skip this sample entirely
+
                 #duration = ts[-1] - ts[0]
                 rawposX_mean = np.mean(rawposX)
                 rawposY_mean = np.mean(rawposY)
@@ -89,7 +93,6 @@ for userID, userData in data.items():
                              'size_std': size_std,
                              'user_id': userID,
                              })
-
 
 #Convert rows to pandas dataframe
 df = pd.DataFrame(rows)
