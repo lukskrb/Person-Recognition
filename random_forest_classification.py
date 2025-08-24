@@ -1,7 +1,8 @@
+from matplotlib import pyplot as plt
 from data_manipulation import X, y
 from sklearn.model_selection import StratifiedKFold
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score, roc_auc_score, f1_score, recall_score
+from sklearn.metrics import ConfusionMatrixDisplay, accuracy_score, confusion_matrix, roc_auc_score, f1_score, recall_score
 import numpy as np
 
 skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
@@ -35,3 +36,24 @@ print("Average Accuracy:", np.mean(accuracies))
 print("Average ROC AUC:", np.mean(roc_aucs))
 print("Average F1 Score:", np.mean(f1_scores))
 print("Average Recall:", np.mean(recalls))
+
+# Confusion Matrix
+cm = confusion_matrix(y_test, y_pred)
+disp = ConfusionMatrixDisplay(confusion_matrix=cm)
+disp.plot(cmap='Blues', values_format='d')  # values_format='d' for integer counts
+plt.title("Confusion Matrix - Random Forest")
+plt.show()
+
+# Find the largest off-diagonal values (most common confusions)
+errors = []
+for i in range(len(cm)):
+    for j in range(len(cm)):
+        if i != j and cm[i, j] > 0:
+            errors.append((i, j, cm[i, j]))
+
+# Sort by number of mistakes
+errors_sorted = sorted(errors, key=lambda x: x[2], reverse=True)
+
+print("Most frequent misclassifications:")
+for true_class, pred_class, count in errors_sorted[:5]:  # top 5
+    print(f"User {true_class} often confused with User {pred_class} ({count} times)")

@@ -1,6 +1,7 @@
+from matplotlib import pyplot as plt
 import tensorflow as tf
 import numpy as np
-from sklearn.metrics import f1_score, recall_score, roc_auc_score
+from sklearn.metrics import ConfusionMatrixDisplay, confusion_matrix, f1_score, recall_score, roc_auc_score
 from data_manipulation import X, X_train, X_test, y_train, y_test
 
 # Define number of classes
@@ -31,9 +32,30 @@ y_pred = np.argmax(y_pred_proba, axis=1)  # class labels
 
 # Metrics
 f1 = f1_score(y_test, y_pred, average='macro')
-recall = recall_score(y_test, y_pred, average='macro')
+recall = recall_score(y_test, y_pred, average=None)
 roc_auc = roc_auc_score(y_test, y_pred_proba, multi_class='ovr')
 
 print("F1 Score:", f1)
 print("Recall:", recall)
 print("ROC AUC:", roc_auc)
+
+# Confusion Matrix
+cm = confusion_matrix(y_test, y_pred)
+disp = ConfusionMatrixDisplay(confusion_matrix=cm)
+disp.plot(cmap='Blues', values_format='d')  # values_format='d' for integer counts
+plt.title("Confusion Matrix - Neural")
+plt.show()
+
+# Find the largest off-diagonal values (most common confusions)
+errors = []
+for i in range(len(cm)):
+    for j in range(len(cm)):
+        if i != j and cm[i, j] > 0:
+            errors.append((i, j, cm[i, j]))
+
+# Sort by number of mistakes
+errors_sorted = sorted(errors, key=lambda x: x[2], reverse=True)
+
+print("Most frequent misclassifications:")
+for true_class, pred_class, count in errors_sorted[:5]:  # top 5
+    print(f"User {true_class} often confused with User {pred_class} ({count} times)")
