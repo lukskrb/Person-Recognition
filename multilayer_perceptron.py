@@ -1,40 +1,64 @@
-from data_manipulation import X_train, X_test, y_train, y_test
-from sklearn.svm import SVC
-from sklearn.metrics import (
-    accuracy_score, f1_score, recall_score, roc_auc_score,
-    confusion_matrix, ConfusionMatrixDisplay, roc_curve, auc
-)
-from sklearn.preprocessing import label_binarize
-import matplotlib.pyplot as plt
-import matplotlib
+from matplotlib import pyplot as plt
+from sklearn.calibration import label_binarize
+import tensorflow as tf
 import numpy as np
+from sklearn.metrics import ConfusionMatrixDisplay, auc, confusion_matrix, f1_score, recall_score, roc_auc_score, roc_curve
+from data_manipulation import X, X_train, X_test, y_train, y_test
 
-svm = SVC(probability=True, random_state=0)  # Enable probability estimates
-svm.fit(X_train, y_train)
+# Define number of classes
+num_classes = len(np.unique(y_train))
 
-y_pred = svm.predict(X_test)
+# Define model
+model = tf.keras.Sequential([
+    tf.keras.layers.Dense(100, activation='relu', input_shape=(X.shape[1],)),
+    tf.keras.layers.Dense(50, activation='relu'),
+    tf.keras.layers.Dense(num_classes, activation='softmax')
+])
 
-acc = accuracy_score(y_test, y_pred)
-f1 = f1_score(y_test, y_pred, average="weighted")
+# Compile
+model.compile(optimizer='adam',
+              loss='sparse_categorical_crossentropy',
+              metrics=['accuracy'])
+
+# Train
+model.fit(X_train, y_train, epochs=25, batch_size=32)
+
+# Evaluate accuracy
+loss, acc = model.evaluate(X_test, y_test)
+print("Test accuracy:", acc)
+
+# Predictions
+y_pred_proba = model.predict(X_test)  # probabilities
+y_pred = np.argmax(y_pred_proba, axis=1)  # class labels
+
+# Metrics
+f1 = f1_score(y_test, y_pred, average='macro')
 recall = recall_score(y_test, y_pred, average=None)
-roc_auc = roc_auc_score(y_test, svm.predict_proba(X_test), multi_class='ovr')
+roc_auc = roc_auc_score(y_test, y_pred_proba, multi_class='ovr')
 
-print("Accuracy:", acc)
-print("F1 score:", f1)
-print("Recall score:", recall)
-print("ROC AUC: ", roc_auc)
+print("F1 Score:", f1)
+print("Recall:", recall)
+print("ROC AUC:", roc_auc)
 
+# Confusion Matrix
 cm = confusion_matrix(y_test, y_pred)
 disp = ConfusionMatrixDisplay(confusion_matrix=cm)
-disp.plot(cmap='Blues', values_format='d')
-plt.title("Confusion Matrix - SVM")
+disp.plot(cmap='Blues', values_format='d')  # values_format='d' for integer counts
+plt.title("Confusion Matrix - Neural")
 plt.show()
 
-errors = [(i, j, cm[i, j]) for i in range(len(cm)) for j in range(len(cm)) if i != j and cm[i, j] > 0]
+# Find the largest off-diagonal values (most common confusions)
+errors = []
+for i in range(len(cm)):
+    for j in range(len(cm)):
+        if i != j and cm[i, j] > 0:
+            errors.append((i, j, cm[i, j]))
+
+# Sort by number of mistakes
 errors_sorted = sorted(errors, key=lambda x: x[2], reverse=True)
 
 print("Most frequent misclassifications:")
-for true_class, pred_class, count in errors_sorted[:5]:
+for true_class, pred_class, count in errors_sorted[:5]:  # top 5
     print(f"User {true_class} often confused with User {pred_class} ({count} times)")
 
 # ROC curves
@@ -42,7 +66,7 @@ y_test_bin = label_binarize(y_test, classes=np.unique(y_test))
 n_classes = y_test_bin.shape[1]
 
 # Predict probabilities
-y_score = svm.predict_proba(X_test)
+y_score = model.predict(X_test)
 
 # Compute ROC curve and AUC for each class
 fpr = dict()
@@ -81,6 +105,6 @@ plt.xlim([0.0, 1.0])
 plt.ylim([0.0, 1.05])
 plt.xlabel('False Positive Rate')
 plt.ylabel('True Positive Rate')
-plt.title('Multi-class ROC - SVM')
+plt.title('Multi-class ROC - Multilayer perceptron')
 plt.legend(loc="lower right")
 plt.show()
