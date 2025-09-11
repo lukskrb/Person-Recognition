@@ -32,5 +32,5 @@ python gradient_boosting_classifier.py
 This script will:
 * Train the model on the training data
 * Evaluate performance on the test set with Accuracy, F1, Recall, and ROC AUC scores
-* Display a confusion matrix plot and ROC curves
+* Display a confusion matrix plot, ROC and PR curves
 * Show the most frequent misclassifications and feature importance
