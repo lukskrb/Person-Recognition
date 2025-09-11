@@ -3,11 +3,14 @@ import numpy as np
 from sklearn.calibration import label_binarize
 from data_manipulation import X_train, X_test, y_train, y_test
 from sklearn.neighbors import KNeighborsClassifier
-from sklearn.metrics import ConfusionMatrixDisplay, accuracy_score, auc, confusion_matrix, f1_score, recall_score, roc_auc_score, roc_curve
+from sklearn.metrics import (
+    ConfusionMatrixDisplay, accuracy_score, auc, confusion_matrix, 
+    f1_score, recall_score, roc_auc_score, roc_curve, 
+    precision_recall_curve, average_precision_score
+)
 
 knn = KNeighborsClassifier(weights="distance")   
 knn.fit(X_train, y_train)
-
 y_pred = knn.predict(X_test)
 
 acc = accuracy_score(y_test, y_pred)
@@ -19,61 +22,54 @@ print("F1 score:", f1)
 print("Recall score:", recall)
 print("ROC AUC: ", roc_auc_score(y_test, knn.predict_proba(X_test), multi_class='ovr'))
 
-# Confusion Matrix
 cm = confusion_matrix(y_test, y_pred)
 disp = ConfusionMatrixDisplay(confusion_matrix=cm)
-disp.plot(cmap='Blues', values_format='d')  # values_format='d' for integer counts
+disp.plot(cmap='Blues', values_format='d')
 plt.title("Confusion Matrix - kNN")
 plt.show()
 
-# Find the largest off-diagonal values (most common confusions)
-errors = []
-for i in range(len(cm)):
-    for j in range(len(cm)):
-        if i != j and cm[i, j] > 0:
-            errors.append((i, j, cm[i, j]))
-
-# Sort by number of mistakes
+# Most frequent misclassifications
+errors = [(i, j, cm[i, j]) for i in range(len(cm)) for j in range(len(cm)) if i != j and cm[i, j] > 0]
 errors_sorted = sorted(errors, key=lambda x: x[2], reverse=True)
-
 print("Most frequent misclassifications:")
-for true_class, pred_class, count in errors_sorted[:5]:  # top 5
+for true_class, pred_class, count in errors_sorted[:5]:
     print(f"User {true_class} often confused with User {pred_class} ({count} times)")
 
-# ROC curves
-y_test_bin = label_binarize(y_test, classes=np.unique(y_test))
+classes = np.unique(y_test)
+y_test_bin = label_binarize(y_test, classes=classes)
 n_classes = y_test_bin.shape[1]
-
-# Predict probabilities
 y_score = knn.predict_proba(X_test)
 
-# Compute ROC curve and AUC for each class
 fpr = dict()
 tpr = dict()
 roc_auc_dict = dict()
+
 for i in range(n_classes):
     fpr[i], tpr[i], _ = roc_curve(y_test_bin[:, i], y_score[:, i])
     roc_auc_dict[i] = auc(fpr[i], tpr[i])
 
-# Compute micro-average ROC curve and AUC
+# Micro-average ROC
 fpr["micro"], tpr["micro"], _ = roc_curve(y_test_bin.ravel(), y_score.ravel())
 roc_auc_dict["micro"] = auc(fpr["micro"], tpr["micro"])
 
-# Compute macro-average ROC curve and AUC
+# Macro-average ROC
 all_fpr = np.unique(np.concatenate([fpr[i] for i in range(n_classes)]))
 mean_tpr = np.zeros_like(all_fpr)
 for i in range(n_classes):
     mean_tpr += np.interp(all_fpr, fpr[i], tpr[i])
 mean_tpr /= n_classes
-
 fpr["macro"] = all_fpr
 tpr["macro"] = mean_tpr
 roc_auc_dict["macro"] = auc(fpr["macro"], tpr["macro"])
 
-# Plot all ROC curves
+# Plot ROC curves
 plt.figure(figsize=(10, 8))
-plt.plot(fpr["micro"], tpr["micro"], label=f'micro-average ROC (AUC = {roc_auc_dict["micro"]:.2f})', color='deeppink', linestyle=':', linewidth=3)
-plt.plot(fpr["macro"], tpr["macro"], label=f'macro-average ROC (AUC = {roc_auc_dict["macro"]:.2f})', color='navy', linestyle=':', linewidth=3)
+plt.plot(fpr["micro"], tpr["micro"], 
+         label=f'micro-average ROC (AUC = {roc_auc_dict["micro"]:.2f})', 
+         color='deeppink', linestyle=':', linewidth=3)
+plt.plot(fpr["macro"], tpr["macro"], 
+         label=f'macro-average ROC (AUC = {roc_auc_dict["macro"]:.2f})', 
+         color='navy', linestyle=':', linewidth=3)
 
 colors = plt.cm.get_cmap('tab10', n_classes)
 for i, color in zip(range(n_classes), colors.colors):
@@ -87,3 +83,39 @@ plt.ylabel('True Positive Rate')
 plt.title('Multi-class ROC - kNN')
 plt.legend(loc="lower right")
 plt.show()
+
+# Precision-Recall curves
+precision = dict()
+recall = dict()
+pr_auc_dict = dict()
+
+for i in range(n_classes):
+    precision[i], recall[i], _ = precision_recall_curve(y_test_bin[:, i], y_score[:, i])
+    pr_auc_dict[i] = average_precision_score(y_test_bin[:, i], y_score[:, i])
+
+# Micro-average PR
+precision["micro"], recall["micro"], _ = precision_recall_curve(y_test_bin.ravel(), y_score.ravel())
+pr_auc_dict["micro"] = average_precision_score(y_test_bin, y_score, average="micro")
+
+# Macro-average PR-AUC
+pr_auc_dict["macro"] = np.mean([pr_auc_dict[i] for i in range(n_classes)])
+
+# Plot PR curves
+plt.figure(figsize=(10, 8))
+plt.plot(recall["micro"], precision["micro"], 
+         label=f'micro-average PR (AP = {pr_auc_dict["micro"]:.2f})', 
+         color='deeppink', linestyle=':', linewidth=3)
+for i, color in zip(range(n_classes), colors.colors):
+    plt.plot(recall[i], precision[i], color=color, lw=2, label=f'Class {i} (AP = {pr_auc_dict[i]:.2f})')
+
+plt.xlabel('Recall')
+plt.ylabel('Precision')
+plt.legend(loc="lower left")
+plt.show()
+
+# Print PR-AUC
+print("PR-AUC scores:")
+for i in range(n_classes):
+    print(f"Class {i}: {pr_auc_dict[i]:.3f}")
+print(f"Micro-average PR-AUC: {pr_auc_dict['micro']:.3f}")
+print(f"Macro-average PR-AUC: {pr_auc_dict['macro']:.3f}")

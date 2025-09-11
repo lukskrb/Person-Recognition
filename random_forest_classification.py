@@ -3,7 +3,7 @@ from sklearn.calibration import label_binarize
 from data_manipulation import X, y
 from sklearn.model_selection import StratifiedKFold
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import ConfusionMatrixDisplay, accuracy_score, auc, confusion_matrix, roc_auc_score, f1_score, recall_score, roc_curve
+from sklearn.metrics import ConfusionMatrixDisplay, accuracy_score, auc, average_precision_score, confusion_matrix, precision_recall_curve, roc_auc_score, f1_score, recall_score, roc_curve
 import numpy as np
 
 skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
@@ -105,3 +105,39 @@ plt.ylabel('True Positive Rate')
 plt.title('Multi-class ROC - Random Forest')
 plt.legend(loc="lower right")
 plt.show()
+
+# Precision-Recall curves
+precision = dict()
+recall = dict()
+pr_auc_dict = dict()
+
+for i in range(n_classes):
+    precision[i], recall[i], _ = precision_recall_curve(y_test_bin[:, i], y_score[:, i])
+    pr_auc_dict[i] = average_precision_score(y_test_bin[:, i], y_score[:, i])
+
+# Micro-average PR
+precision["micro"], recall["micro"], _ = precision_recall_curve(y_test_bin.ravel(), y_score.ravel())
+pr_auc_dict["micro"] = average_precision_score(y_test_bin, y_score, average="micro")
+
+# Macro-average PR-AUC
+pr_auc_dict["macro"] = np.mean([pr_auc_dict[i] for i in range(n_classes)])
+
+# Plot PR curves
+plt.figure(figsize=(10, 8))
+plt.plot(recall["micro"], precision["micro"], 
+         label=f'micro-average PR (AP = {pr_auc_dict["micro"]:.2f})', 
+         color='deeppink', linestyle=':', linewidth=3)
+for i, color in zip(range(n_classes), colors.colors):
+    plt.plot(recall[i], precision[i], color=color, lw=2, label=f'Class {i} (AP = {pr_auc_dict[i]:.2f})')
+
+plt.xlabel('Recall')
+plt.ylabel('Precision')
+plt.legend(loc="lower left")
+plt.show()
+
+# Print PR-AUC
+print("PR-AUC scores:")
+for i in range(n_classes):
+    print(f"Class {i}: {pr_auc_dict[i]:.3f}")
+print(f"Micro-average PR-AUC: {pr_auc_dict['micro']:.3f}")
+print(f"Macro-average PR-AUC: {pr_auc_dict['macro']:.3f}")

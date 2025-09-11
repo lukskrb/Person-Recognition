@@ -4,12 +4,14 @@ import matplotlib.pyplot as plt
 from sklearn import preprocessing
 from sklearn.model_selection import train_test_split
 import numpy as np
+from sklearn.metrics import pairwise_distances
+import seaborn as sns
 
-#Getting data in form of a dictionary from a pickle file
+# Getting data in form of a dictionary from a pickle file
 with open('dataset.pickle', 'rb') as f:
     data = pickle.load(f)
 
-#Loop thru each variable in dictionay and append it to its own row
+# Loop thru each variable in dictionary and append it to its own row
 rows = []
 
 for userID, userData in data.items():
@@ -17,11 +19,10 @@ for userID, userData in data.items():
         for deviceType, userData in userData.items():
             for contentID, userData in userData.items():
 
-                #Extract all needed data
+                # Extract all needed data
                 inputType = userData.get('input_type', str)
                 inputContent = userData.get('input_content', str)
                 sensorData = userData.get('data', {})
-                #print(sensorData)
 
                 ts = sensorData.get('ts', [])
                 rawposX = sensorData.get('rawposX', [])
@@ -37,11 +38,12 @@ for userID, userData in data.items():
                 pressure = sensorData.get('pressure', [])
                 size = sensorData.get('size', [])
 
-                required_vectors = [rawposX, rawposY, relposX, relposY, velX, velY, magX, magY, magZ, orientation, pressure, size]
+                required_vectors = [rawposX, rawposY, relposX, relposY,
+                                    velX, velY, magX, magY, magZ,
+                                    orientation, pressure, size]
                 if any(len(v) == 0 for v in required_vectors):
                     continue  # skip this sample entirely
 
-                #duration = ts[-1] - ts[0]
                 rawposX_mean = np.mean(rawposX)
                 rawposY_mean = np.mean(rawposY)
                 rawposX_std = np.std(rawposX)
@@ -94,22 +96,62 @@ for userID, userData in data.items():
                              'user_id': userID,
                              })
 
-#Convert rows to pandas dataframe
+# Convert rows to pandas dataframe
 df = pd.DataFrame(rows)
 
-#Check if there are missing values in the data set
+# Check if there are missing values in the data set
 df = df.dropna()
 df_nulls = pd.DataFrame(df.isnull().sum().sort_values(ascending=False), columns=['Number of Missing Values'])
 df_nulls['% Missing'] = df.isnull().sum().sort_values(ascending=False)/len(df)
 print(df_nulls)
 
-#Split data into training and testing set
+# Split data into training and testing set
 X = df.drop('user_id', axis=1)
 y = df[['user_id']]
-#print(X)
 
 scaler = preprocessing.MinMaxScaler()
 X = scaler.fit_transform(X)
-#print(X)
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=42, train_size = 0.8)
+
+
+# EXTRA ANALYSIS: why user 9 might have perfect classification
+
+# Intra-class variance (consistency)
+user9_data = df[df['user_id'] == 9].drop('user_id', axis=1)
+user9_variance = user9_data.var().mean()
+others_data = df[df['user_id'] != 9].drop('user_id', axis=1)
+others_variance = others_data.var().mean()
+
+print(f"\n[Intra-class consistency]")
+print(f"Average variance of user 9's features: {user9_variance:.4f}")
+print(f"Average variance of all other users: {others_variance:.4f}")
+
+# Inter-class separability (distance to others)
+dist_matrix = pairwise_distances(user9_data, others_data)
+avg_distance_to_others = dist_matrix.mean()
+print(f"\n[Inter-class separability]")
+print(f"Average distance between user 9's samples and others: {avg_distance_to_others:.4f}")
+
+# Compare with another user for context (e.g., user 2)
+sample_other_user = df[df['user_id'] == 2].drop('user_id', axis=1)
+dist_matrix_others = pairwise_distances(sample_other_user, others_data)
+print(f"Average distance between user 2's samples and others: {dist_matrix_others.mean():.4f}")
+'''
+# Visualization: compare feature distribution for a key feature
+plt.figure(figsize=(12,6))
+sns.kdeplot(df[df['user_id'] == 9]['pressure_mean'], label="User 9", fill=True)
+sns.kdeplot(df[df['user_id'] == 2]['pressure_mean'], label="User 2", fill=True)
+sns.kdeplot(df[df['user_id'] == 14]['pressure_mean'], label="User 14", fill=True)
+plt.title("Pressure Mean Distribution for Users 9, 2, and 14")
+plt.legend()
+plt.show()
+
+plt.figure(figsize=(12,6))
+sns.kdeplot(df[df['user_id'] == 9]['magX_mean'], label="User 9", fill=True)
+sns.kdeplot(df[df['user_id'] == 2]['magX_mean'], label="User 2", fill=True)
+sns.kdeplot(df[df['user_id'] == 14]['magX_mean'], label="User 14", fill=True)
+plt.title("size Mean Distribution for Users 9, 2, and 14")
+plt.legend()
+plt.show()
+'''
